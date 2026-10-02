@@ -9,7 +9,7 @@ endif
 
 CC = gcc
 CFLAGS = -Wall -I.
-TARGET = backend$(EXE)
+TARGET = server$(EXE)
 
 CMD_SRC   = $(wildcard commands/*.c)
 UTIL_SRC  = $(wildcard utils/*.c)
