@@ -2,9 +2,8 @@ CC = gcc
 CFLAGS = -Wall -I.
 TARGET = server
 
-CMD_SRC  = $(wildcard commands/*.c)
 UTIL_SRC = $(wildcard utils/*.c)
-SRC      = main.c $(CMD_SRC) $(UTIL_SRC)
+SRC      = main.c $(UTIL_SRC)
 
 OBJS = $(SRC:.c=.o)
 
