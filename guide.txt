@@ -1,0 +1,6 @@
+window 1 (our server):
+make
+./server 5003
+
+window 2 (the client):
+./arm64/bin/macos/client localhost 5003 1234 20 1 10 0 100000 0

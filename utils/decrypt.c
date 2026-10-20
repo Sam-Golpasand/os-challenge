@@ -1,6 +1,14 @@
 #define LONESHA256_STATIC
 #include "lonesha256.h"
-#include <endian.h>
+#if defined(__linux__)
+  #include <endian.h>
+#elif defined(__APPLE__)
+  #include <libkern/OSByteOrder.h>
+  #define htobe64(x) OSSwapHostToBigInt64(x)
+  #define htole64(x) OSSwapHostToLittleInt64(x)
+  #define be64toh(x) OSSwapBigToHostInt64(x)
+  #define le64toh(x) OSSwapLittleToHostInt64(x)
+#endif
 #include <stdint.h>
 #include <string.h>
 

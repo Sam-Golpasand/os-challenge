@@ -1,6 +1,4 @@
 #include "tcpHandler.h"
-#include <asm-generic/socket.h>
-#include <endian.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,8 +24,8 @@ int startServer(int port) {
 
     // create a socket and check if it is created properly
     if ((serverFD = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-       printf("Server couldn't create a socket");
-      exit(EXIT_FAILURE); 
+        printf("Server couldn't create a socket");
+        exit(EXIT_FAILURE); 
     }
 
     int opt = 1;
