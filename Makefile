@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -I.
+CFLAGS = -Wall -O3 -I.
 TARGET = server
 
 UTIL_SRC = $(wildcard utils/*.c)

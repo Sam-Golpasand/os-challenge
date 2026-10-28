@@ -1,6 +1,7 @@
 #include "tcpHandler.h"
 #include <asm-generic/socket.h>
 #include <endian.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,7 +23,6 @@ int startServer(int port) {
 
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    uint8_t buffer[49] = {0};
 
     // create a socket and check if it is created properly
     if ((serverFD = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -52,25 +52,34 @@ int startServer(int port) {
     // Here we actually start to listen using the serverFD setting we have made. 
     // Note that the integer we give is the queue length accepted. If it surpasses 10 we deny them
 
-    if (listen(serverFD, 10) < 0) {
+    if (listen(serverFD, 10000) < 0) {
         printf("Failed to listen");
         exit(EXIT_FAILURE);
     }
 
     while(1) {
-        printf("Waiting for connection...\n");
 
         if ((newSocket = accept(serverFD, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
             perror("accept failed");
             continue;
         }
 
-        printf("Client connected: %s\n", inet_ntoa(address.sin_addr));
+        uint8_t buffer[49] = {0};
 
-        ssize_t valRead;
-        valRead = read(newSocket, buffer, 49);
-        if (valRead < 0) {
-            perror("read failed");
+        // Since read() function doesnt gaurentee all 49 bytes gets read, we have to add that
+        // safety ourselves. 
+        size_t total = 0;
+        while (total < sizeof(buffer)) {
+            ssize_t n = read(newSocket, buffer + total, sizeof(buffer) - total);
+            if (n < 0 && errno == EINTR) {
+                continue;
+            }
+            if (n <= 0) {
+                break;
+            }
+            total += n;
+        }
+        if (total < sizeof(buffer)) {
             close(newSocket);
             continue;
         }
