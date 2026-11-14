@@ -1,6 +1,4 @@
 #include "tcpHandler.h"
-#include <asm-generic/socket.h>
-#include <endian.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,14 +8,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+
+void *connectionThread(void *arg);
 
 int startServer(int port) {
 
     // The serverFD is used for the initialization of the port. It is basically our setting for
     // what port to use and listen on, and basically just waits for new connections.
-    // An important thing about serverFD is that it acts as an API between our program and the OS 
+    // An important thing about serverFD is that it acts as an API between our program and the OS
     // so we actually just use it like a pointer that tells the os what to do
-    // The NewSocket is the one we use for comunnication. When the serverFD sees a new connection 
+    // The NewSocket is the one we use for comunnication. When the serverFD sees a new connection
     // incoming, we use an accept() function which creates a newSocket which will overwrite the one below
     int serverFD, newSocket;
 
@@ -27,7 +28,7 @@ int startServer(int port) {
     // create a socket and check if it is created properly
     if ((serverFD = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
        printf("Server couldn't create a socket");
-      exit(EXIT_FAILURE); 
+      exit(EXIT_FAILURE);
     }
 
     int opt = 1;
@@ -38,7 +39,7 @@ int startServer(int port) {
         exit(EXIT_FAILURE);
     }
 
-    // This tell us to use the TCP (AD_INET) and accept any ip address like the specs say. 
+    // This tell us to use the TCP (AD_INET) and accept any ip address like the specs say.
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
@@ -49,7 +50,7 @@ int startServer(int port) {
         exit(EXIT_FAILURE);
     }
 
-    // Here we actually start to listen using the serverFD setting we have made. 
+    // Here we actually start to listen using the serverFD setting we have made.
     // Note that the integer we give is the queue length accepted. If it surpasses 10 we deny them
 
     if (listen(serverFD, 10000) < 0) {
@@ -63,6 +64,34 @@ int startServer(int port) {
             perror("accept failed");
             continue;
         }
+
+        // each thread gets its own copy of the socket number.
+        int *socketCopy = malloc(sizeof(int));
+        if (socketCopy == NULL) {
+            close(newSocket);
+            continue;
+        }
+        *socketCopy = newSocket;
+
+        // Start a thread that handles this client, so the loop can accept the next one.
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, connectionThread, socketCopy) != 0) {
+            perror("pthread_create failed");
+            free(socketCopy);
+            close(newSocket);
+            continue;
+        }
+        // never join the thread so detach it to free its resources when done.
+        pthread_detach(thread);
+    }
+
+    return 0;
+}
+
+// handles one client in its own thread: read request, crack hash, send answer.
+void *connectionThread(void *arg) {
+    int newSocket = *(int *)arg;
+    free(arg);
 
         uint8_t buffer[49] = {0};
 
@@ -81,7 +110,7 @@ int startServer(int port) {
         }
         if (total < sizeof(buffer)) {
             close(newSocket);
-            continue;
+            return NULL;
         }
 
         uint64_t answer = 0;
@@ -90,7 +119,5 @@ int startServer(int port) {
         
         send(newSocket, &answer, sizeof(answer), 0);
         close(newSocket);
-    }
-
-    return 0;
+    return NULL;
 }
