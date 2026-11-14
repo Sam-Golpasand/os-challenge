@@ -96,7 +96,7 @@ void *connectionThread(void *arg) {
         uint8_t buffer[49] = {0};
 
         // Since read() function doesnt gaurentee all 49 bytes gets read, we have to add that
-        // safety ourselves.
+        // safety ourselves. 
         size_t total = 0;
         while (total < sizeof(buffer)) {
             ssize_t n = read(newSocket, buffer + total, sizeof(buffer) - total);
