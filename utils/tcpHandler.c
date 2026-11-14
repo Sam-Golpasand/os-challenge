@@ -8,9 +8,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <pthread.h>                                   // NEW
+#include <pthread.h>
 
-void *connectionThread(void *arg);                     // NEW
+void *connectionThread(void *arg);
 
 int startServer(int port) {
 
