@@ -2,7 +2,7 @@
 #define SCHEDULER_H
 
 #include <stdint.h>
-
+#define MAX_BATCH_SIZE 16
 typedef struct {
     int client;
     uint8_t buffer[49];
@@ -13,7 +13,7 @@ void schedulerInit();
 
 void schedulerPush(Request request);
 
-int schedulerPop(Request *request);
+int schedulerPop(Request *request, int batchSize);
 
 
 #endif

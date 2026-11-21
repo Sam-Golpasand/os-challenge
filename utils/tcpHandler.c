@@ -3,6 +3,7 @@
 #include <endian.h>
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "decrypt.h"
@@ -10,12 +11,29 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+#include "schedulers/scheduler.h"
 
-#define WORKERS 16
+#define CORE_COUNT 8
 
-void *workerThread() {
+void *workerThread(void *arg) {
+    (void)arg;
 
-    
+    Request batch[MAX_BATCH_SIZE];
+
+    while (1) {
+        int n = schedulerPop(batch, MAX_BATCH_SIZE);
+
+        for (int i = 0; i < n; i++) {
+            uint64_t answer = 0;
+
+            decrypt(batch[i].buffer, &answer);
+
+            send(batch[i].client, &answer, sizeof(&answer), 0);
+            close(batch[0].client);
+        }
+    }
+
 }
 
 
@@ -65,6 +83,17 @@ int startServer(int port) {
         exit(EXIT_FAILURE);
     }
 
+    schedulerInit();
+
+    pthread_t workers[CORE_COUNT];
+
+    for (int i = 0; i < CORE_COUNT; i++) {
+        if (pthread_create(&workers[i], NULL, workerThread, NULL) != 0) {
+            perror("Failed to create threads");
+            exit(EXIT_FAILURE);
+        } 
+    }
+
     while(1) {
 
         if ((newSocket = accept(serverFD, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
@@ -92,12 +121,12 @@ int startServer(int port) {
             continue;
         }
 
-        uint64_t answer = 0;
+        Request task;
+        task.client = newSocket;
+        memcpy(task.buffer, buffer, 49);
+        task.priority = buffer[48];
 
-        decrypt(buffer, &answer);
-        
-        send(newSocket, &answer, sizeof(answer), 0);
-        close(newSocket);
+        schedulerPush(task);
     }
 
     return 0;

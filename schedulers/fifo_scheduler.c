@@ -35,7 +35,7 @@ void schedulerPush(Request request) {
     }
 }
 
-int schedulerPop(Request *out) {
+int schedulerPop(Request *out, int batchSize) {
     while (1) {
         pthread_mutex_lock(&lock);
 

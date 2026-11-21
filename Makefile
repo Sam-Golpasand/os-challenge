@@ -1,9 +1,12 @@
 CC = gcc
-CFLAGS = -Wall -O3 -I.
+CFLAGS = -Wall -O3 -pthread -I. 
 TARGET = server
 
+SCHED ?= fifo_schedueler
+
 UTIL_SRC = $(wildcard utils/*.c)
-SRC      = main.c $(UTIL_SRC)
+SCHED_SRC = schedulers/$(SCHED).c schedulers/scheduler.h
+SRC      = main.c $(UTIL_SRC) $(SCHED_SRC)
 
 OBJS = $(SRC:.c=.o)
 
@@ -18,4 +21,4 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) schedulers/*.o (TARGET)
