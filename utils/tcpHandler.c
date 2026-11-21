@@ -11,6 +11,14 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#define WORKERS 16
+
+void *workerThread() {
+
+    
+}
+
+
 int startServer(int port) {
 
     // The serverFD is used for the initialization of the port. It is basically our setting for
