@@ -29,8 +29,8 @@ void *workerThread(void *arg) {
 
             decrypt(batch[i].buffer, &answer);
 
-            send(batch[i].client, &answer, sizeof(&answer), 0);
-            close(batch[0].client);
+            send(batch[i].client, &answer, sizeof(answer), 0);
+            close(batch[i].client);
         }
     }
 
