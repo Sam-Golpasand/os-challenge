@@ -40,14 +40,9 @@ int schedulerPop(Request *out, int batchSize) {
         pthread_mutex_lock(&lock);
 
         if (count != 0) {
-            int popped = 0;
-            while(count != 0 && popped < batchSize) {
-
-                out[popped] = queue[head];
-                head = (head + 1) % QUEUE_CAPACITY;
-                count --;
-                popped++;
-            }
+            out[0] = queue[head];
+            head = (head + 1) % QUEUE_CAPACITY;
+            count --;
             pthread_mutex_unlock(&lock);
             return 1;
         }
