@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-#define QUEUE_CAPACITY 4096
+#define QUEUE_CAPACITY 16384
 
 typedef struct {
     Request queue[QUEUE_CAPACITY];
