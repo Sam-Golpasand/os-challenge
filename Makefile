@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -O3 -pthread -I.
 TARGET = server
 
-SCHED ?= prio_batch
+SCHED ?= prio
 
 UTIL_SRC  = $(wildcard utils/*.c)
 SCHED_SRC = schedulers/$(SCHED).c

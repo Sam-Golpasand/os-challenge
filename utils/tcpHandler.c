@@ -14,7 +14,7 @@
 #include <pthread.h>
 #include "schedulers/scheduler.h"
 
-#define CORE_COUNT 8
+#define CORE_COUNT 16
 
 void *workerThread(void *arg) {
     (void)arg;
