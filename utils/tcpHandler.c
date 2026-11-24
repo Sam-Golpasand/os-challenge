@@ -1,6 +1,9 @@
 #include "tcpHandler.h"
+#include <asm-generic/socket.h>
+#include <endian.h>
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "decrypt.h"
@@ -9,16 +12,38 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include "schedulers/scheduler.h"
 
-void *connectionThread(void *arg);
+#define CORE_COUNT 16
+
+void *workerThread(void *arg) {
+    (void)arg;
+
+    Request batch[MAX_BATCH_SIZE];
+
+    while (1) {
+        int n = schedulerPop(batch, MAX_BATCH_SIZE);
+
+        for (int i = 0; i < n; i++) {
+            uint64_t answer = 0;
+
+            decrypt(batch[i].buffer, &answer);
+
+            send(batch[i].client, &answer, sizeof(answer), 0);
+            close(batch[i].client);
+        }
+    }
+
+}
+
 
 int startServer(int port) {
 
     // The serverFD is used for the initialization of the port. It is basically our setting for
     // what port to use and listen on, and basically just waits for new connections.
-    // An important thing about serverFD is that it acts as an API between our program and the OS
+    // An important thing about serverFD is that it acts as an API between our program and the OS 
     // so we actually just use it like a pointer that tells the os what to do
-    // The NewSocket is the one we use for comunnication. When the serverFD sees a new connection
+    // The NewSocket is the one we use for comunnication. When the serverFD sees a new connection 
     // incoming, we use an accept() function which creates a newSocket which will overwrite the one below
     int serverFD, newSocket;
 
@@ -28,7 +53,7 @@ int startServer(int port) {
     // create a socket and check if it is created properly
     if ((serverFD = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
        printf("Server couldn't create a socket");
-      exit(EXIT_FAILURE);
+      exit(EXIT_FAILURE); 
     }
 
     int opt = 1;
@@ -39,7 +64,7 @@ int startServer(int port) {
         exit(EXIT_FAILURE);
     }
 
-    // This tell us to use the TCP (AD_INET) and accept any ip address like the specs say.
+    // This tell us to use the TCP (AD_INET) and accept any ip address like the specs say. 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
@@ -50,12 +75,23 @@ int startServer(int port) {
         exit(EXIT_FAILURE);
     }
 
-    // Here we actually start to listen using the serverFD setting we have made.
+    // Here we actually start to listen using the serverFD setting we have made. 
     // Note that the integer we give is the queue length accepted. If it surpasses 10 we deny them
 
     if (listen(serverFD, 10000) < 0) {
         printf("Failed to listen");
         exit(EXIT_FAILURE);
+    }
+
+    schedulerInit();
+
+    pthread_t workers[CORE_COUNT];
+
+    for (int i = 0; i < CORE_COUNT; i++) {
+        if (pthread_create(&workers[i], NULL, workerThread, NULL) != 0) {
+            perror("Failed to create threads");
+            exit(EXIT_FAILURE);
+        } 
     }
 
     while(1) {
@@ -64,34 +100,6 @@ int startServer(int port) {
             perror("accept failed");
             continue;
         }
-
-        // each thread gets its own copy of the socket number.
-        int *socketCopy = malloc(sizeof(int));
-        if (socketCopy == NULL) {
-            close(newSocket);
-            continue;
-        }
-        *socketCopy = newSocket;
-
-        // Start a thread that handles this client, so the loop can accept the next one.
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, connectionThread, socketCopy) != 0) {
-            perror("pthread_create failed");
-            free(socketCopy);
-            close(newSocket);
-            continue;
-        }
-        // never join the thread so detach it to free its resources when done.
-        pthread_detach(thread);
-    }
-
-    return 0;
-}
-
-// handles one client in its own thread: read request, crack hash, send answer.
-void *connectionThread(void *arg) {
-    int newSocket = *(int *)arg;
-    free(arg);
 
         uint8_t buffer[49] = {0};
 
@@ -110,14 +118,16 @@ void *connectionThread(void *arg) {
         }
         if (total < sizeof(buffer)) {
             close(newSocket);
-            return NULL;
+            continue;
         }
 
-        uint64_t answer = 0;
+        Request task;
+        task.client = newSocket;
+        memcpy(task.buffer, buffer, 49);
+        task.priority = buffer[48];
 
-        decrypt(buffer, &answer);
-        
-        send(newSocket, &answer, sizeof(answer), 0);
-        close(newSocket);
-    return NULL;
+        schedulerPush(task);
+    }
+
+    return 0;
 }
