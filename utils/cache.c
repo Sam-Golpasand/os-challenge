@@ -10,7 +10,7 @@ typedef struct {
     int state;
 } cacheEntry;
 
-// for 0 = empty, 1 = pending, and 2 = done
+// what the different numbers for state mean: 0 = empty, 1 = pending, and 2 = done
 
 static pthread_mutex_t cacheLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cacheDone = PTHREAD_COND_INITIALIZER;
