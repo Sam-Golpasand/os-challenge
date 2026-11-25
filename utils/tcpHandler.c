@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include "cache.h"
 
 void *connectionThread(void *arg);
 
@@ -115,7 +116,11 @@ void *connectionThread(void *arg) {
 
         uint64_t answer = 0;
 
-        decrypt(buffer, &answer);
+        int response = cacheLookup(buffer, &answer);
+        if (response == 0) {
+            decrypt(buffer, &answer);
+            cacheInsert(buffer, answer);
+        }
         
         send(newSocket, &answer, sizeof(answer), 0);
         close(newSocket);
