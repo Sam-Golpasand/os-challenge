@@ -36,18 +36,14 @@ void schedulerPush(Request request) {
 
     pthread_mutex_lock(&lock);
     
-    if (priorityQueue[pIndex].count == QUEUE_CAPACITY) {
+    while (priorityQueue[pIndex].count == QUEUE_CAPACITY) {
         pthread_cond_wait(&notFull, &lock);
     }
 
-    if (priorityQueue[pIndex].count < QUEUE_CAPACITY) {
         priorityQueue[pIndex].queue[priorityQueue[pIndex].tail] = request;
         priorityQueue[pIndex].tail = (priorityQueue[pIndex].tail + 1 ) % QUEUE_CAPACITY;
         priorityQueue[pIndex].count++;
         totalCount++;
-        pthread_mutex_unlock(&lock);
-        return;
-    }
 
     pthread_cond_signal(&notEmpty);
 
@@ -64,7 +60,6 @@ int schedulerPop(Request *out, int batchSize) {
         pthread_cond_wait(&notEmpty, &lock);
     }
 
-    if (totalCount > 0) {
         for (int i = 15; i >= 0; i--) {
             if (priorityQueue[i].count > 0) {
                 out[0] = priorityQueue[i].queue[priorityQueue[i].head];
@@ -74,9 +69,6 @@ int schedulerPop(Request *out, int batchSize) {
 
                 break;
             }
-        }
-    
-
     }
     pthread_cond_signal(&notFull);
     pthread_mutex_unlock(&lock);
