@@ -1,6 +1,9 @@
 #include "tcpHandler.h"
+#include <asm-generic/socket.h>
+#include <endian.h>
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "decrypt.h"
@@ -10,8 +13,36 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include "cache.h"
+#include "schedulers/scheduler.h"
 
-void *connectionThread(void *arg);
+#define CORE_COUNT 16
+
+void *workerThread(void *arg) {
+    (void)arg;
+
+    Request batch[MAX_BATCH_SIZE];
+
+    while (1) {
+        int n = schedulerPop(batch, MAX_BATCH_SIZE);
+
+        for (int i = 0; i < n; i++) {
+            uint64_t answer = 0;
+
+
+            int response = cacheLookup(buffer, &answer);
+            if (response == 0) {
+                decrypt(buffer, &answer);
+                cacheInsert(buffer, answer);
+            }
+            decrypt(batch[i].buffer, &answer);
+
+            send(batch[i].client, &answer, sizeof(answer), 0);
+            close(batch[i].client);
+        }
+    }
+
+}
+
 
 int startServer(int port) {
 
@@ -59,40 +90,23 @@ int startServer(int port) {
         exit(EXIT_FAILURE);
     }
 
+    schedulerInit();
+
+    pthread_t workers[CORE_COUNT];
+
+    for (int i = 0; i < CORE_COUNT; i++) {
+        if (pthread_create(&workers[i], NULL, workerThread, NULL) != 0) {
+            perror("Failed to create threads");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     while(1) {
 
         if ((newSocket = accept(serverFD, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
             perror("accept failed");
             continue;
         }
-
-        // each thread gets its own copy of the socket number.
-        int *socketCopy = malloc(sizeof(int));
-        if (socketCopy == NULL) {
-            close(newSocket);
-            continue;
-        }
-        *socketCopy = newSocket;
-
-        // Start a thread that handles this client, so the loop can accept the next one.
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, connectionThread, socketCopy) != 0) {
-            perror("pthread_create failed");
-            free(socketCopy);
-            close(newSocket);
-            continue;
-        }
-        // never join the thread so detach it to free its resources when done.
-        pthread_detach(thread);
-    }
-
-    return 0;
-}
-
-// handles one client in its own thread: read request, crack hash, send answer.
-void *connectionThread(void *arg) {
-    int newSocket = *(int *)arg;
-    free(arg);
 
         uint8_t buffer[49] = {0};
 
@@ -111,18 +125,16 @@ void *connectionThread(void *arg) {
         }
         if (total < sizeof(buffer)) {
             close(newSocket);
-            return NULL;
+            continue;
         }
 
-        uint64_t answer = 0;
+        Request task;
+        task.client = newSocket;
+        memcpy(task.buffer, buffer, 49);
+        task.priority = buffer[48];
 
-        int response = cacheLookup(buffer, &answer);
-        if (response == 0) {
-            decrypt(buffer, &answer);
-            cacheInsert(buffer, answer);
-        }
-        
-        send(newSocket, &answer, sizeof(answer), 0);
-        close(newSocket);
-    return NULL;
+        schedulerPush(task);
+    }
+
+    return 0;
 }
