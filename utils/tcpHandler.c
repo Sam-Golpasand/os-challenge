@@ -1,6 +1,4 @@
 #include "tcpHandler.h"
-#include <asm-generic/socket.h>
-#include <endian.h>
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -28,19 +26,17 @@ void *workerThread(void *arg) {
         for (int i = 0; i < n; i++) {
             uint64_t answer = 0;
 
-
-            int response = cacheLookup(buffer, &answer);
+            // check the cache first, only crack the hash on a miss
+            int response = cacheLookup(batch[i].buffer, &answer);
             if (response == 0) {
-                decrypt(buffer, &answer);
-                cacheInsert(buffer, answer);
+                decrypt(batch[i].buffer, &answer);
+                cacheInsert(batch[i].buffer, answer);
             }
-            decrypt(batch[i].buffer, &answer);
 
             send(batch[i].client, &answer, sizeof(answer), 0);
             close(batch[i].client);
         }
     }
-
 }
 
 
