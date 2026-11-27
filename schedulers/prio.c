@@ -24,6 +24,7 @@ void schedulerInit() {
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&notFull, NULL);
     pthread_cond_init(&notEmpty, NULL);
+    totalCount = 0;
     for (int i = 0; i < 16; i++) {
         priorityQueue[i].count = 0;
         priorityQueue[i].head = 0;
@@ -56,7 +57,7 @@ int schedulerPop(Request *out, int batchSize) {
 
     pthread_mutex_lock(&lock);
 
-    if (totalCount == 0) {
+    while (totalCount == 0) {
         pthread_cond_wait(&notEmpty, &lock);
     }
 

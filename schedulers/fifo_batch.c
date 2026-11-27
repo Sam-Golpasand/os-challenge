@@ -1,18 +1,13 @@
 #include "scheduler.h"
+
 #include <pthread.h>
 
-#define QUEUE_CAPACITY 16384
+#define QUEUE_CAPACITY 32000
 
-typedef struct {
-    Request queue[QUEUE_CAPACITY];
-    int head;
-    int tail;
-    int count;
-} Queue;
-
-// Here we have index 0 to be a priority of 1 and 15 to be 16.
-Queue priorityQueue[16];
-int totalCount;
+Request queue[QUEUE_CAPACITY];
+int head = 0;
+int tail = 0;
+int count = 0;
 
 pthread_mutex_t lock;
 pthread_cond_t notFull;
@@ -23,26 +18,21 @@ void schedulerInit() {
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&notFull, NULL);
     pthread_cond_init(&notEmpty, NULL);
-    for (int i = 0; i < 16; i++) {
-        priorityQueue[i].count = 0;
-        priorityQueue[i].head = 0;
-        priorityQueue[i].tail = 0;
-    }
+    head = 0;
+    tail = 0;
+    count = 0;
 }
 
 void schedulerPush(Request request) {
-    int pIndex = request.priority - 1;
-
     pthread_mutex_lock(&lock);
 
-    while (priorityQueue[pIndex].count == QUEUE_CAPACITY) {
+    while (count == QUEUE_CAPACITY) {
         pthread_cond_wait(&notFull, &lock);
     }
 
-    priorityQueue[pIndex].queue[priorityQueue[pIndex].tail] = request;
-    priorityQueue[pIndex].tail = (priorityQueue[pIndex].tail + 1 ) % QUEUE_CAPACITY;
-    priorityQueue[pIndex].count++;
-    totalCount++;
+    queue[tail] = request;
+    tail = (tail + 1 ) % QUEUE_CAPACITY;
+    count++;
 
     pthread_cond_signal(&notEmpty);
 
@@ -52,20 +42,17 @@ void schedulerPush(Request request) {
 int schedulerPop(Request *out, int batchSize) {
     pthread_mutex_lock(&lock);
 
-    while (totalCount == 0) {
+    while (count == 0) {
         pthread_cond_wait(&notEmpty, &lock);
     }
 
     int popped = 0;
+    while(count != 0 && popped < batchSize) {
 
-    for (int i = 15; i >= 0 && popped < batchSize; i--) {
-        while (priorityQueue[i].count > 0 && popped < batchSize) {
-            out[popped] = priorityQueue[i].queue[priorityQueue[i].head];
-            priorityQueue[i].head = (priorityQueue[i].head + 1) % QUEUE_CAPACITY;
-            priorityQueue[i].count--;
-            totalCount--;
-            popped++;
-        }
+        out[popped] = queue[head];
+        head = (head + 1) % QUEUE_CAPACITY;
+        count --;
+        popped++;
     }
 
     pthread_cond_signal(&notFull);
