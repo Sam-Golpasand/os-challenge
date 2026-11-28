@@ -1,5 +1,6 @@
 
 server
+.idea
 client
 benchmark.sh
 SchedulerExperiment.md
